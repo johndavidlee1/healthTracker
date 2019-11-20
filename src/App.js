@@ -6,152 +6,230 @@ import Paper from "@material-ui/core/Paper";
 import TextField from "@material-ui/core/TextField";
 import Button from "@material-ui/core/Button";
 import IconButton from "@material-ui/core/IconButton";
-import MenuIcon from "@material-ui/icons/Menu";
 import Drawer from "@material-ui/core/Drawer";
-import { Link } from "react-router-dom";
-import { auth } from "./firebase";
+import MenuIcon from "@material-ui/icons/Menu";
+import { Link, Route } from "react-router-dom";
+import List from "@material-ui/core/List";
+import ListItem from "@material-ui/core/ListItem";
+import ListItemText from "@material-ui/core/ListItemText";
+import { auth, db } from "./firebase";
+import Radio from "@material-ui/core/Radio";
+import DissatisfiedIcon from "@material-ui/icons/SentimentDissatisfied";
+import SatisfiedIcon from "@material-ui/icons/SentimentSatisfied";
+import VeryDissatisfiedIcon from "@material-ui/icons/SentimentVeryDissatisfied";
+import VerySatisfiedIcon from "@material-ui/icons/SentimentVerySatisfied";
+import { Line } from "react-chartjs-2";
+var unirest = require("unirest");
+var moment = require("moment");
 
-export function SignIn(props) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function Charts(props) {
+  const [temp_array, setTempArray] = useState([]);
+  const [sleep_array, setSleepArray] = useState([]);
+  const [happy_array, setHappyArray] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(u => {
-      if (u) {
-        props.history.push("/app");
-      }
-      //do something
-    });
-    return unsubscribe;
-  }, [props.history]);
+    db.collection("users")
+      .doc(props.uid)
+      .collection("surveys")
+      .onSnapshot(snapshot => {
+        const temp_array = [];
+        const sleep_array = [];
+        const happiness_array = [];
 
-  const handleSignIn = () => {
-    auth
-      .signInWithEmailAndPassword(email, password)
-      .then(() => {})
-      .catch(error => {
-        alert(error.message);
+        snapshot.forEach(s => {
+          const data = s.data();
+          const temp_object = { x: data.date, y: data.temp };
+          temp_array.push(temp_object);
+          const sleep_object = { x: data.date, y: data.sleepHours };
+          sleep_array.push(sleep_object);
+          const happiness_object = { x: data.date, y: data.happiness };
+          happiness_array.push(happiness_object);
+        });
+
+        setHappyArray(happiness_array);
+        setTempArray(temp_array);
+        setSleepArray(sleep_array);
       });
+  }, [props.uid]);
+  console.log(temp_array);
+  const data = {
+    datasets: [
+      {
+        label: "Happiness",
+        data: happy_array,
+        backgroundColor: "transparent",
+        borderColor: "red",
+        yAxisID: "y-axis-2"
+      },
+      {
+        label: "Sleep",
+        data: sleep_array,
+        backgroundColor: "transparent",
+        borderColor: "blue",
+        yAxisID: "y-axis-2"
+      },
+      {
+        label: "Temperature",
+        data: temp_array,
+        backgroundColor: "transparent",
+        borderColor: "green",
+        yAxisID: "y-axis-1"
+      }
+    ]
+  };
+
+  const options = {
+    scales: {
+      yAxes: [
+        {
+          type: "linear",
+          display: true,
+          position: "left",
+          id: "y-axis-1"
+        },
+        {
+          type: "linear",
+          display: true,
+          position: "right",
+          id: "y-axis-2"
+        }
+      ],
+      xAxes: [
+        {
+          type: "time",
+          time: {
+            displayFormats: { hour: "MMM D" }
+          }
+        }
+      ]
+    }
   };
 
   return (
-    <div>
-      <AppBar position="static" color="primary">
-        <Toolbar>
-          <Typography variant="h6" color="inherit">
-            Sign In
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <Paper style={{ width: "480px", marginTop: "50px", padding: "30px" }}>
-          <TextField
-            placeholder="Email"
-            fullWidth={true}
-            value={email}
-            onChange={e => {
-              setEmail(e.target.value);
-            }}
-          />
-          <TextField
-            type="Password"
-            placeholder="Password"
-            fullWidth={true}
-            style={{ marginTop: "30px" }}
-            value={password}
-            onChange={e => {
-              setPassword(e.target.value);
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "30px"
-            }}
-          >
-            <Typography>
-              Don't have an account? <Link to="/signup">Sign up!</Link>
-            </Typography>
-            <Button color="primary" variant="contained" onClick={handleSignIn}>
-              Sign In
-            </Button>
-          </div>
-        </Paper>
-      </div>
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <Paper style={{ width: 600, marginTop: 30, padding: 30 }}>
+        <Typography variant="h6" style={{ marginBottom: 10 }}>
+          {" "}
+          Health Stats Over Time
+        </Typography>
+        <Line data={data} options={options} />
+      </Paper>
     </div>
   );
 }
 
-export function SignUp(props) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function Survey(props) {
+  const [happiness, setHappiness] = useState(4);
+  const [sleepHours, setSleepHours] = useState(6.5);
+  const [temp, setTemp] = useState(212);
+  const [lon, setLon] = useState(50);
+  const [lat, setLat] = useState(50);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(u => {
-      if (u) {
-        props.history.push("/app");
-      }
-      //do something
+    navigator.geolocation.getCurrentPosition(position => {
+      setLat(position.coords.latitude);
+      setLon(position.coords.longitude);
     });
-    return unsubscribe;
-  }, [props.history]);
+  }, []);
 
-  const handleSignUp = () => {
-    auth
-      .createUserWithEmailAndPassword(email, password)
-      .then(() => {})
-      .catch(error => {
-        alert(error.message);
+  useEffect(() => {
+    var req = unirest(
+      "GET",
+      "https://community-open-weather-map.p.rapidapi.com/weather"
+    );
+
+    req.query({
+      lat: lat,
+      lon: lon,
+      units: "imperial"
+    });
+
+    req.headers({
+      "x-rapidapi-host": "community-open-weather-map.p.rapidapi.com",
+      "x-rapidapi-key": "2ab76a46c3msh95a7e9a72dc4326p1f1d13jsna9d018bfce1d"
+    });
+
+    req.end(function(res) {
+      if (res.error) throw new Error(res.error);
+      setTemp(res.body.main.temp);
+    });
+  }, [lat, lon]);
+
+  const handleSave = () => {
+    const today = moment().format("YYYY-MM-DD HH:mm");
+    db.collection("users")
+      .doc(props.uid)
+      .collection("surveys")
+      .add({
+        temp: temp,
+        happiness: happiness,
+        sleepHours: sleepHours,
+        date: today
+      })
+      .then(() => {
+        props.push("/app/charts/");
       });
   };
+
   return (
-    <div>
-      <AppBar position="static" color="primary">
-        <Toolbar>
-          <Typography variant="h6" color="inherit">
-            Sign Up
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <Paper style={{ width: "480px", marginTop: "50px", padding: "30px" }}>
-          <TextField
-            placeholder="Email"
-            fullWidth={true}
-            value={email}
-            onChange={e => {
-              setEmail(e.target.value);
+    <div style={{ display: "flex", justifyContent: "center" }}>
+      <Paper
+        style={{ marginTop: 30, padding: 20, maxWidth: 400, width: "100%" }}
+      >
+        <Typography>How many hours did you sleep last night?</Typography>
+        <TextField
+          fullWidth
+          value={sleepHours}
+          onChange={e => {
+            setSleepHours(e.target.value);
+          }}
+        />
+        <Typography style={{ marginTop: 30 }}>
+          How happy do you feel today?
+        </Typography>
+        <div>
+          <Radio
+            icon={<VeryDissatisfiedIcon />}
+            checkedIcon={<VeryDissatisfiedIcon />}
+            checked={happiness === 1}
+            onChange={() => {
+              setHappiness(1);
             }}
           />
-          <TextField
-            type="password"
-            placeholder="Password"
-            fullWidth={true}
-            style={{ marginTop: "30px" }}
-            value={password}
-            onChange={e => {
-              setPassword(e.target.value);
+          <Radio
+            icon={<DissatisfiedIcon />}
+            checkedIcon={<DissatisfiedIcon />}
+            checked={happiness === 2}
+            onChange={() => {
+              setHappiness(2);
             }}
           />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: "30px"
+          <Radio
+            icon={<SatisfiedIcon />}
+            checkedIcon={<SatisfiedIcon />}
+            checked={happiness === 3}
+            onChange={() => {
+              setHappiness(3);
             }}
-          >
-            <Typography>
-              Already have an account? <Link to="/">Sign In!</Link>
-            </Typography>
-            <Button color="primary" variant="contained" onClick={handleSignUp}>
-              Sign Up
-            </Button>
-          </div>
-        </Paper>
-      </div>
+          />
+          <Radio
+            icon={<VerySatisfiedIcon />}
+            checkedIcon={<VerySatisfiedIcon />}
+            checked={happiness === 4}
+            onChange={() => {
+              setHappiness(4);
+            }}
+          />
+        </div>
+        <Button
+          variant="contained"
+          color="primary"
+          style={{ marginTop: 20 }}
+          onClick={handleSave}
+        >
+          Save
+        </Button>
+      </Paper>
     </div>
   );
 }
@@ -167,8 +245,8 @@ export function App(props) {
       } else {
         props.history.push("/");
       }
-      //do something
     });
+
     return unsubscribe;
   }, [props.history]);
 
@@ -186,6 +264,7 @@ export function App(props) {
   if (!user) {
     return <div />;
   }
+
   return (
     <div>
       <AppBar position="static" color="primary">
@@ -203,14 +282,13 @@ export function App(props) {
             color="inherit"
             style={{ flexGrow: 1, marginLeft: "30px" }}
           >
-            My App
+            Health Tracker
           </Typography>
           <Typography color="inherit" style={{ marginRight: "30px" }}>
             Hi! {user.email}
           </Typography>
           <Button color="inherit" onClick={handleSignOut}>
-            {" "}
-            Sign Out
+            Sign out
           </Button>
         </Toolbar>
       </AppBar>
@@ -220,8 +298,42 @@ export function App(props) {
           setDrawerOpen(false);
         }}
       >
-        <div>Hello</div>
+        <List>
+          <ListItem
+            button
+            to="/app/"
+            component={Link}
+            onClick={() => {
+              setDrawerOpen(false);
+            }}
+          >
+            <ListItemText primary="Take Survey" />
+          </ListItem>
+          <ListItem
+            button
+            to="/app/charts/"
+            component={Link}
+            onClick={() => {
+              setDrawerOpen(false);
+            }}
+          >
+            <ListItemText primary="Chart" />
+          </ListItem>
+        </List>
       </Drawer>
+      <Route
+        path="/app/charts"
+        render={props => {
+          return <Charts uid={user.uid} />;
+        }}
+      />
+      <Route
+        exact
+        path="/app/"
+        render={props => {
+          return <Survey uid={user.uid} push={props.history.push} />;
+        }}
+      />
     </div>
   );
 }
